@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Solar Powered Irrigation</title>
+
+    <!-- Chart.js + date adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 220px;
+            background: #222;
+            color: #fff;
+            height: 100vh;
+            padding: 20px 10px;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 20px;
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 10px;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .sidebar a:hover,
+        .sidebar a.active {
+            background: #444;
+        }
+
+        .main {
+            flex: 1;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #datetimeDisplay {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 20px;
+            font-weight: normal;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            padding: 20px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 18px;
+            text-align: center;
+            transition: background 0.3s;
+        }
+
+        .voltage { background: #3498db; }
+        .humidity { background: #e886f5; }
+        .power { background: #16a085; }
+        .temperature { background: #f39c12; }
+        .condition { background: #7f8c8d; }
+
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .chart-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .history-section,
+        .settings-section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .history-section h3,
+        .settings-section h3 { margin-bottom: 10px; }
+
+        .history-table,
+        .settings-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .history-table th,
+        .history-table td,
+        .settings-table th,
+        .settings-table td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: center;
+        }
+
+        .history-table th,
+        .settings-table th {
+            background: #f0f0f0;
+        }
+
+        #powerContent,
+        #settingsContent { display: none; }
+
+        .view-toggle {
+            margin-bottom: 10px;
+        }
+
+        .view-toggle button {
+            margin-right: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .view-toggle button.active { background: #3498db; color: #fff; }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3><br><b>Admin</b></h3>
+        <a id="menuDashboard" class="active">🏠 Dashboard</a>
+        <a id="menuPower">📊 Data</a>
+        <a id="menuSettings">💧 Moisture Logs</a>
+    </div>
+
+    <div class="main">
+        <header>Solar Powered Irrigation</header>
+        <div id="datetimeDisplay">📅 Loading date & time...</div>
+
+        <!-- DASHBOARD SECTION -->
+        <div id="dashboardContent">
+            <div class="cards">
+                <div class="card voltage">Current Voltage <br><b id="voltage">0</b> V</div>
+                <div class="card power">Current Moisture <br><b id="Moisture">0</b></div>
+                <div class="card humidity">Humidity <br><b id="humidity">0</b></div>
+                <div class="card temperature">Temperature <br><b id="temperature">0 °C</b></div>
+                <div class="card condition" id="soilCondition">Soil Condition <br><b id="soilText">Checking...</b></div>
+            </div>
+
+            <!-- Historical averages -->
+            <div class="history-section">
+                <h3>Historical Data (Hourly Averages)</h3>
+
+                <h4>Average Voltage per Hour</h4>
+                <table class="history-table" id="voltageHistoryTable">
+                    <tr>
+                        <th>Hour</th>
+                        <th>Average Voltage (V)</th>
+                    </tr>
+                </table>
+
+                <h4>Average Humidity per Hour</h4>
+                <table class="history-table" id="humidityHistoryTable">
+                    <tr>
+                        <th>Hour</th>
+                        <th>Average Humidity (%)</th>
+                    </tr>
+                </table>
+
+                <h4>Average Temperature per Hour</h4>
+                <table class="history-table" id="temperatureHistoryTable">
+                    <tr>
+                        <th>Hour</th>
+                        <th>Average Temperature (°C)</th>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- POWER SECTION -->
+        <div id="powerContent">
+            <div class="charts">
+                <div class="chart-box">
+                    <h3>Live Voltage Data (Solar panel)</h3>
+                    <div class="view-toggle" id="voltageView">
+                        <button data-view="seconds" class="active">Seconds</button>
+                        <button data-view="minutes">Minutes</button>
+                        <button data-view="hours">Hours</button>
+                    </div>
+                    <canvas id="voltageChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3>Live Moisture Data</h3>
+                    <div class="view-toggle" id="moistureView">
+                        <button data-view="seconds" class="active">Seconds</button>
+                        <button data-view="minutes">Minutes</button>
+                        <button data-view="hours">Hours</button>
+                    </div>
+                    <canvas id="moistureChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3>Humidity (Last 20 values)</h3>
+                    <canvas id="humidityChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <h3>Temperature (Last 20 values)</h3>
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS SECTION -->
+        <div id="settingsContent">
+            <div class="settings-section">
+                <h3>💧 Moisture Dry Condition Log</h3>
+                <table class="settings-table" id="dryLogTable">
+                    <tr>
+                        <th>#</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Moisture Value</th>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBZ9AkHbF1370zs4bBoL5MQmnUf9_U95AM",
+            authDomain: "solarpanel-c8fbf.firebaseapp.com",
+            databaseURL: "https://solarpanel-c8fbf-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "solarpanel-c8fbf",
+            storageBucket: "solarpanel-c8fbf.firebasestorage.app",
+            messagingSenderId: "1067779117190",
+            appId: "1:1067779117190:web:7ac2fa2b41e93c56e34107"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        const voltageRef = ref(database, "SoilSensor/Voltage");
+        const moistRef = ref(database, "SoilSensor/Moisture");
+        const humidityRef = ref(database, "SoilSensor/Humidity");
+        const temperatureRef = ref(database, "SoilSensor/Temperature");
+
+        // Live date and time updater
+        function updateDateTime() {
+            const now = new Date();
+            const date = now.toLocaleDateString('en-CA');
+            const time = now.toLocaleTimeString('en-US', { hour12: true });
+            document.getElementById("datetimeDisplay").textContent = `📅 ${date} | 🕒 ${time}`;
+        }
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+
+        // --- Chart Utilities ---
+        function createLineChart(ctx, label, color) {
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label,
+                        data: [],
+                        borderColor: color,
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { type: 'time', time: { unit: 'second', stepSize: 6 } },
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function createBarChart(ctx, label, color) {
+            return new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{ label, data: [], backgroundColor: color }]
+                },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        // --- Aggregated Data Arrays ---
+        const voltageData = { seconds: [], minutes: [], hours: [] };
+        const moistureData = { seconds: [], minutes: [], hours: [] };
+
+        // --- Aggregation Functions ---
+        function addDataPoint(dataArray, value) {
+            const now = Date.now();
+
+            // Seconds
+            dataArray.seconds.push({ x: now, y: value });
+            if (dataArray.seconds.length > 60) dataArray.seconds.shift();
+
+            // Minutes: max of last 60 seconds
+            if (!dataArray.minutes.last) dataArray.minutes.last = { start: now, max: value };
+            if (now - dataArray.minutes.last.start < 60000) {
+                dataArray.minutes.last.max = Math.max(dataArray.minutes.last.max, value);
+            } else {
+                dataArray.minutes.push({ x: now, y: dataArray.minutes.last.max });
+                if (dataArray.minutes.length > 60) dataArray.minutes.shift();
+                dataArray.minutes.last = { start: now, max: value };
+            }
+
+            // Hours: max of last 60 minutes
+            if (!dataArray.hours.last) dataArray.hours.last = { start: now, max: value };
+            if (now - dataArray.hours.last.start < 3600000) {
+                dataArray.hours.last.max = Math.max(dataArray.hours.last.max, value);
+            } else {
+                dataArray.hours.push({ x: now, y: dataArray.hours.last.max });
+                if (dataArray.hours.length > 60) dataArray.hours.shift();
+                dataArray.hours.last = { start: now, max: value };
+            }
+        }
+
+        // --- Create Aggregated Charts ---
+        function createAggregatedChart(ctx, label, color) {
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        { label: `${label} (Seconds)`, data: [], borderColor: color, backgroundColor: 'transparent', fill: false, tension: 0.2 },
+                        { label: `${label} (Minutes)`, data: [], borderColor: 'orange', backgroundColor: 'transparent', fill: false, tension: 0.2 },
+                        { label: `${label} (Hours)`, data: [], borderColor: 'red', backgroundColor: 'transparent', fill: false, tension: 0.2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: { x: { type: 'time' }, y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        const voltageChart = createAggregatedChart(document.getElementById('voltageChart'), 'Voltage (V)', '#3498db');
+        const moistureChart = createAggregatedChart(document.getElementById('moistureChart'), 'Moisture', 'green');
+        const humidityChart = createBarChart(document.getElementById('humidityChart'), 'Humidity', '#e67e22');
+        const temperatureChart = createBarChart(document.getElementById('temperatureChart'), 'Temperature (°C)', '#2980b9');
+
+        // --- Update Charts by Selected View ---
+        let voltageView = 'seconds';
+        let moistureView = 'seconds';
+
+        function updateAggregatedChart(chart, dataObj, view) {
+            chart.data.datasets.forEach(ds => ds.hidden = true);
+            const index = { seconds: 0, minutes: 1, hours: 2 }[view];
+            chart.data.datasets[index].data = dataObj[view];
+            chart.data.datasets[index].hidden = false;
+            chart.update();
+        }
+
+        document.querySelectorAll('#voltageView button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                voltageView = btn.dataset.view;
+                document.querySelectorAll('#voltageView button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                updateAggregatedChart(voltageChart, voltageData, voltageView);
+            });
+        });
+
+        document.querySelectorAll('#moistureView button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                moistureView = btn.dataset.view;
+                document.querySelectorAll('#moistureView button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                updateAggregatedChart(moistureChart, moistureData, moistureView);
+            });
+        });
+
+        // --- Firebase listeners ---
+        function formatTime(ts) { return new Date(ts).toLocaleTimeString(); }
+        function formatDate(ts) { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+        function getHourKey(ts) { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()} ${d.getHours()}:00`; }
+
+        const humidityHistory = [];
+        const temperatureHistory = [];
+        const dryLog = [];
+
+        function updateDryLog(value) {
+            const now = new Date();
+            dryLog.unshift({ date: formatDate(now), time: formatTime(now), value });
+            if (dryLog.length > 50) dryLog.pop();
+            const table = document.getElementById('dryLogTable');
+            table.innerHTML = "<tr><th>#</th><th>Date</th><th>Time</th><th>Moisture Value</th></tr>" +
+                dryLog.map((d, i) => `<tr><td>${i+1}</td><td>${d.date}</td><td>${d.time}</td><td>${d.value}</td></tr>`).join('');
+        }
+
+        function updateHourlyAverage(type, value, tableId, label) {
+            const hourKey = getHourKey(Date.now());
+            if (!window.hourlyData) window.hourlyData = { voltage:{}, temperature:{}, humidity:{} };
+            if (!window.hourlyData[type][hourKey]) window.hourlyData[type][hourKey] = [];
+            window.hourlyData[type][hourKey].push(value);
+
+            const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+            const table = document.getElementById(tableId);
+            table.innerHTML = `<tr><th>Hour</th><th>${label}</th></tr>` +
+                Object.entries(window.hourlyData[type])
+                    .map(([hour, vals])=>`<tr><td>${hour}</td><td>${avg(vals).toFixed(2)}</td></tr>`).join('');
+        }
+
+        onValue(voltageRef, snap => {
+            if (!snap.exists()) return;
+            const v = Number(snap.val());
+            document.getElementById('voltage').textContent = v;
+            addDataPoint(voltageData, v);
+            updateAggregatedChart(voltageChart, voltageData, voltageView);
+            updateHourlyAverage('voltage', v, 'voltageHistoryTable', 'Average Voltage (V)');
+        });
+
+        onValue(moistRef, snap => {
+            if (!snap.exists()) return;
+            const m = Number(snap.val());
+            document.getElementById('Moisture').textContent = m;
+
+            const soilText = document.getElementById('soilText');
+            const soilCard = document.getElementById('soilCondition');
+            if (m >= 3500 && m <= 4095) { soilText.textContent="Dry"; soilCard.style.background="#e74c3c"; }
+            else if (m>=2000&&m<3500){ soilText.textContent="Moist"; soilCard.style.background="#16a085"; }
+            else if (m<2000){ soilText.textContent="Wet"; soilCard.style.background="#3498db"; }
+            else{ soilText.textContent="Unknown"; soilCard.style.background="#7f8c8d"; }
+
+            if (m>=4000) updateDryLog(m);
+            addDataPoint(moistureData, m);
+            updateAggregatedChart(moistureChart, moistureData, moistureView);
+        });
+
+        const INTERVAL = 3*60*1000;
+        let lastHum=0, lastTemp=0;
+        onValue(humidityRef, snap => {
+            if(!snap.exists()) return;
+            const h = Number(snap.val());
+            document.getElementById('humidity').textContent = h;
+            const now=Date.now();
+            if(now-lastHum>=INTERVAL){
+                humidityHistory.push({time:formatTime(now), value:h});
+                if(humidityHistory.length>20) humidityHistory.shift();
+                humidityChart.data.labels=humidityHistory.map(d=>d.time);
+                humidityChart.data.datasets[0].data=humidityHistory.map(d=>d.value);
+                humidityChart.update();
+                updateHourlyAverage('humidity', h, 'humidityHistoryTable','Average Humidity (%)');
+                lastHum=now;
+            }
+        });
+
+        onValue(temperatureRef, snap => {
+            if(!snap.exists()) return;
+            const t = Number(snap.val());
+            document.getElementById('temperature').textContent=t;
+            const now=Date.now();
+            if(now-lastTemp>=INTERVAL){
+                temperatureHistory.push({time:formatTime(now), value:t});
+                if(temperatureHistory.length>20) temperatureHistory.shift();
+                temperatureChart.data.labels=temperatureHistory.map(d=>d.time);
+                temperatureChart.data.datasets[0].data=temperatureHistory.map(d=>d.value);
+                temperatureChart.update();
+                updateHourlyAverage('temperature', t, 'temperatureHistoryTable','Average Temperature (°C)');
+                lastTemp=now;
+            }
+        });
+
+        // --- Navigation ---
+        const menuDashboard=document.getElementById("menuDashboard");
+        const menuPower=document.getElementById("menuPower");
+        const menuSettings=document.getElementById("menuSettings");
+        const dashboardContent=document.getElementById("dashboardContent");
+        const powerContent=document.getElementById("powerContent");
+        const settingsContent=document.getElementById("settingsContent");
+
+        menuDashboard.addEventListener("click",()=>{menuDashboard.classList.add("active");menuPower.classList.remove("active");menuSettings.classList.remove("active");dashboardContent.style.display="block";powerContent.style.display="none";settingsContent.style.display="none";});
+        menuPower.addEventListener("click",()=>{menuPower.classList.add("active");menuDashboard.classList.remove("active");menuSettings.classList.remove("active");dashboardContent.style.display="none";powerContent.style.display="block";settingsContent.style.display="none";});
+        menuSettings.addEventListener("click",()=>{menuSettings.classList.add("active");menuDashboard.classList.remove("active");menuPower.classList.remove("active");dashboardContent.style.display="none";powerContent.style.display="none";settingsContent.style.display="block";});
+    </script>
+</body>
+</html>
