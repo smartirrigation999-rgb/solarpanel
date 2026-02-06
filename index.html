@@ -164,8 +164,8 @@
             <div class="cards">
                 <div class="card voltage">Current Voltage <br><b id="voltage">0</b> V</div>
                 <div class="card power">Current Moisture <br><b id="Moisture">0</b></div>
-                <div class="card humidity">Humidity <br><b id="humidity">0</b></div>
-                <div class="card temperature">Temperature <br><b id="temperature">0 °C</b></div>
+                <div class="card humidity">Humidity <br><b id="humidity">0</b>%</div>
+                <div class="card temperature">Temperature <br><b id="temperature">0</b>°C</div>
                 <div class="card condition" id="soilCondition">Soil Condition <br><b id="soilText">Checking...</b></div>
             </div>
 
@@ -420,7 +420,7 @@
                 dryLog.map((d, i) => `<tr><td>${i+1}</td><td>${d.date}</td><td>${d.time}</td><td>${d.value}</td></tr>`).join('');
         }
 
-        function updateHourlyAverage(type, value, tableId, label) {
+       function updateHourlyAverage(type, value, tableId, label) {
     const hourKey = getHourKey(Date.now());
     if (!window.hourlyData) window.hourlyData = { voltage:{}, temperature:{}, humidity:{} };
     if (!window.hourlyData[type][hourKey]) window.hourlyData[type][hourKey] = [];
@@ -433,17 +433,18 @@
         `<tr><th>Hour</th><th>${label}</th></tr>` +
         Object.entries(window.hourlyData[type])
             .map(([hour, vals]) => {
-                const valueText =
-                    type === 'temperature'
-                        ? `${avg(vals).toFixed(2)} °C`
-                        : type === 'humidity'
-                            ? `${avg(vals).toFixed(2)} %`
-                            : avg(vals).toFixed(2);
+                const average = avg(vals).toFixed(2);
 
-                return `<tr><td>${hour}</td><td>${valueText}</td></tr>`;
+                let unit = '';
+                if (type === 'temperature') unit = ' °C';
+                else if (type === 'humidity') unit = ' %';
+                else if (type === 'voltage') unit = ' V';
+
+                return `<tr><td>${hour}</td><td>${average}${unit}</td></tr>`;
             })
             .join('');
 }
+
 
 
         onValue(voltageRef, snap => {
@@ -520,6 +521,7 @@
     </script>
 </body>
 </html>
+
 
 
 
