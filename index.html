@@ -488,7 +488,7 @@
                 temperatureChart.data.labels=temperatureHistory.map(d=>d.time);
                 temperatureChart.data.datasets[0].data=temperatureHistory.map(d=>d.value);
                 temperatureChart.update();
-                updateHourlyAverage('temperature', t, 'temperatureHistoryTable','Average Temperature (°C)');
+                updateHourlyAverage('temperature', t + '°C', 'temperatureHistoryTable','Average Temperature (°C)');
                 lastTemp=now;
             }
         });
@@ -507,3 +507,4 @@
     </script>
 </body>
 </html>
+
