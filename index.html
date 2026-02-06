@@ -421,17 +421,30 @@
         }
 
         function updateHourlyAverage(type, value, tableId, label) {
-            const hourKey = getHourKey(Date.now());
-            if (!window.hourlyData) window.hourlyData = { voltage:{}, temperature:{}, humidity:{} };
-            if (!window.hourlyData[type][hourKey]) window.hourlyData[type][hourKey] = [];
-            window.hourlyData[type][hourKey].push(value);
+    const hourKey = getHourKey(Date.now());
+    if (!window.hourlyData) window.hourlyData = { voltage:{}, temperature:{}, humidity:{} };
+    if (!window.hourlyData[type][hourKey]) window.hourlyData[type][hourKey] = [];
+    window.hourlyData[type][hourKey].push(value);
 
-            const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
-            const table = document.getElementById(tableId);
-            table.innerHTML = `<tr><th>Hour</th><th>${label}</th></tr>` +
-                Object.entries(window.hourlyData[type])
-                    .map(([hour, vals])=>`<tr><td>${hour}</td><td>${avg(vals).toFixed(2)}</td></tr>`).join('');
-        }
+    const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+    const table = document.getElementById(tableId);
+
+    table.innerHTML =
+        `<tr><th>Hour</th><th>${label}</th></tr>` +
+        Object.entries(window.hourlyData[type])
+            .map(([hour, vals]) => {
+                const valueText =
+                    type === 'temperature'
+                        ? `${avg(vals).toFixed(2)} °C`
+                        : type === 'humidity'
+                            ? `${avg(vals).toFixed(2)} %`
+                            : avg(vals).toFixed(2);
+
+                return `<tr><td>${hour}</td><td>${valueText}</td></tr>`;
+            })
+            .join('');
+}
+
 
         onValue(voltageRef, snap => {
             if (!snap.exists()) return;
@@ -488,7 +501,7 @@
                 temperatureChart.data.labels=temperatureHistory.map(d=>d.time);
                 temperatureChart.data.datasets[0].data=temperatureHistory.map(d=>d.value);
                 temperatureChart.update();
-                updateHourlyAverage('temperature', `${t} °C`, 'temperatureHistoryTable',' Average Temperature (°C)');
+                updateHourlyAverage('temperature', t, 'temperatureHistoryTable',' Average Temperature (°C)');
                 lastTemp=now;
             }
         });
@@ -507,6 +520,7 @@
     </script>
 </body>
 </html>
+
 
 
 
